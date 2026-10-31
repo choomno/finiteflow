@@ -7,7 +7,7 @@ namespace fflow {
                                    std::size_t n_rows,
                                    const std::size_t rows[],
                                    AlgInput xin[], Mod,
-                                   AlgorithmData *,
+                                   AlgorithmData * datain,
                                    MatrixView & m) const
   {
     AlgInput x = xin[0];
@@ -17,7 +17,7 @@ namespace fflow {
 
       std::size_t row_i = rows[i];
       UInt * r = m.row(i);
-      const DenseLinearSolver::flag_t * info = xinfo();
+      const DenseLinearSolver::flag_t * info = xinfo(datain);
 
       for (unsigned j=0; j<n_cols; ++j, ++r, ++info)
         if ((*info) & LSVar::IS_NON_ZERO) {
@@ -63,10 +63,10 @@ namespace fflow {
                                     unsigned n_rows,
                                     const unsigned rows[],
                                     AlgInput xin[], Mod,
-                                    AlgorithmData *,
+                                    AlgorithmData * datain,
                                     SparseMatrix & m) const
   {
-    const SparseLinearSolver::flag_t * info = xinfo();
+    const SparseLinearSolver::flag_t * info = xinfo(datain);
     const UInt * xi = xin[0];
 
     for (unsigned i=0; i<n_rows; ++i) {

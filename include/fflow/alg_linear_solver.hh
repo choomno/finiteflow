@@ -20,6 +20,8 @@ namespace fflow {
     friend class DenseLinearSolver;
     std::vector<std::size_t> depv_;
     DynamicMatrix mat_;
+    DynamicMatrix original_;
+    bool full_source_ = false;
   };
 
   class DenseLinearSolver : public Algorithm {
@@ -65,6 +67,7 @@ namespace fflow {
       neqs_ = neqs;
       nvars_ = nvars;
       stage_ = FIRST_;
+      full_xinfo_.assign(nvars+1, LSVar::IS_NON_ZERO);
     }
 
     Ret reset_needed(AlgorithmData * data,
@@ -89,6 +92,13 @@ namespace fflow {
     {
       return xinfo_.get();
     }
+
+    const flag_t * xinfo(const AlgorithmData * data) const
+    {
+      return adata_(data).full_source_ ? full_xinfo_.data() : xinfo();
+    }
+    bool full_system_validation() const { return full_validation_; }
+    Ret validate_full_system(bool enabled = true);
 
     std::size_t n_needed_depvars() const
     {
@@ -171,6 +181,8 @@ namespace fflow {
 
     Ret learn_1_(Context * ctxt, AlgInput xin[], Mod mod, AlgorithmData * data);
     Ret learn_2_(Context * ctxt, AlgInput xin[], Mod mod, AlgorithmData * data);
+    Ret validate_full_solution_(Context * ctxt, AlgInput xin[], Mod mod,
+                                 AlgorithmData * data, const UInt xout[]) const;
 
   private:
 
@@ -188,6 +200,8 @@ namespace fflow {
   private:
     //std::vector<std::size_t> depv_;
     std::vector<std::size_t> indepv_;
+    std::vector<flag_t> full_xinfo_;
+    bool full_validation_ = false;
     std::unique_ptr<std::size_t[]> needed_ext_;
     std::unique_ptr<std::size_t[]> needed_dep_;
     std::unique_ptr<std::size_t[]> needed_indep_;
@@ -209,6 +223,8 @@ namespace fflow {
   private:
     friend class SparseLinearSolver;
     SparseMatrix mat_;
+    SparseMatrix original_;
+    bool full_source_ = false;
   };
 
   class SparseLinearSolver : public Algorithm {
@@ -256,6 +272,8 @@ namespace fflow {
       indepeqs_.reset(new unsigned[neqs]);
       set_ext_needed_(needed_vars, needed_size);
       stage_ = FIRST_;
+      full_xinfo_.assign(nvars+1, LSVar::IS_NON_ZERO);
+      requested_vars_.assign(needed_vars, needed_vars+needed_size);
     }
 
     Ret reset_needed(AlgorithmData * data,
@@ -280,6 +298,15 @@ namespace fflow {
     {
       return xinfo_.get();
     }
+
+    const flag_t * xinfo(const AlgorithmData * data) const
+    {
+      return adata_(data).full_source_ ? full_xinfo_.data() : xinfo();
+    }
+    bool full_system_validation() const { return full_validation_; }
+    bool source_available() const { return !source_pruned_; }
+    void source_was_pruned() { source_pruned_ = true; }
+    virtual Ret validate_full_system(bool enabled = true);
 
     std::size_t n_needed_depvars() const
     {
@@ -405,6 +432,8 @@ namespace fflow {
 
     Ret learn_1_(Context * ctxt, AlgInput xin[], Mod mod, AlgorithmData * data);
     Ret learn_2_(Context * ctxt, AlgInput xin[], Mod mod, AlgorithmData * data);
+    Ret validate_full_solution_(Context * ctxt, AlgInput xin[], Mod mod,
+                                 AlgorithmData * data, const UInt xout[]) const;
 
     static void mark_eq_(const SparseMatrix::EqDeps * eqdeps, unsigned eq,
                          bool * marked);
@@ -454,6 +483,10 @@ namespace fflow {
 
   private:
     std::vector<unsigned> zerodeps_;
+    std::vector<unsigned> requested_vars_;
+    std::vector<flag_t> full_xinfo_;
+    bool full_validation_ = false;
+    bool source_pruned_ = false;
     std::unique_ptr<unsigned[]> needed_dep_;
     std::unique_ptr<unsigned[]> needed_indep_;
     std::unique_ptr<unsigned[]> indepeqs_;
@@ -466,7 +499,7 @@ namespace fflow {
     unsigned nndeps_ = 0, nnindeps_ = 0, nnindepeqs_ = 0;
     unsigned maxcol_ =  SparseMatrixRow::END;
     flag_t stage_ = FIRST_;
-    flag_t flag_;
+    flag_t flag_ = 0;
   };
 
 } // namespace ampf

@@ -7,7 +7,7 @@ namespace fflow {
                                       std::size_t n_rows,
                                       const std::size_t rows[],
                                       AlgInput[], Mod mod,
-                                      AlgorithmData *,
+                                      AlgorithmData * datain,
                                       MatrixView & m) const
   {
     const MPInt mpmod(mod.n());
@@ -19,7 +19,7 @@ namespace fflow {
       const MPRational * f = c.row(rows[i]);
       const MPRational * fend = f + n_cols;
       UInt * r = m.row(i);
-      const DenseLinearSolver::flag_t * info = xinfo();
+      const DenseLinearSolver::flag_t * info = xinfo(datain);
 
       for (; f<fend; ++f, ++r, ++info)
         if ((*info) & LSVar::IS_NON_ZERO) {
@@ -43,6 +43,9 @@ namespace fflow {
 
   void NumericSparseSolver::delete_unneeded_eqs(AlgorithmData *)
   {
+    if (full_system_validation())
+      return;
+    source_was_pruned();
     const SparseLinearSolver::flag_t * info = xinfo();
     const std::size_t n_rows = rinfo.size();
     const std::size_t c_len = c.size();
@@ -86,10 +89,10 @@ namespace fflow {
                                        unsigned n_rows,
                                        const unsigned rows[],
                                        AlgInput[], Mod mod,
-                                       AlgorithmData *,
+                                       AlgorithmData * datain,
                                        SparseMatrix & m) const
   {
-    const SparseLinearSolver::flag_t * info = xinfo();
+    const SparseLinearSolver::flag_t * info = xinfo(datain);
     const MPInt mpmod(mod.n());
     MPInt mpres;
 

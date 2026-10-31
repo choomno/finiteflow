@@ -380,6 +380,17 @@ def LearnEx(graph,**kwargs):
     opt = _ffi.new("FFLearnOptions *",kwargs)
     return _StatusCheck(_lib.ffLearnEx(graph, opt[0]))
 
+def LSolveValidateFullSystem(graph, node, enabled=True):
+    '''Check every original equation at each modular evaluation.
+
+    Configure before learning. Supports all-variable homogeneous or affine
+    outputs with full back substitution. Partial requests, particular-only
+    outputs and destructively pruned sources are rejected. Weighted Ex solvers
+    and loaded legacy layouts are unsupported. This check is at
+    the evaluated point; an exact generic certificate is still needed.
+    '''
+    return _StatusCheck(_lib.ffLSolveValidateFullSystem(graph,node,enabled))
+
 def EvaluateGraph(graph,z,primeno):
     nparsin = _lib.ffNodeNParsOut(graph,0)
     if _lib.ffIsError(nparsin):

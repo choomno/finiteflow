@@ -129,6 +129,12 @@ extern "C" {
   FFStatus ffLearn(FFGraph graph);
   FFStatus ffLearnEx(FFGraph graph, FFLearnOptions opt);
 
+  // Opt-in full original-system validation at each modular evaluation.
+  // Configure before learning; only all-variable homogeneous/affine outputs
+  // with full back substitution are supported. Partial requests, weighted Ex
+  // solvers, pruned sources and loaded legacy layouts are rejected.
+  FFStatus ffLSolveValidateFullSystem(FFGraph graph, FFNode node, bool enabled);
+
   // output can be freed with ffFreeMemoryU64
   FFUInt * ffEvaluateGraph(FFGraph graph,
                            const FFUInt * input, unsigned prime_no);

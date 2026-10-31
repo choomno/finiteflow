@@ -619,6 +619,23 @@ namespace fflow {
       g->invalidate_reconstruction_cache();
   }
 
+  Ret Session::refresh_algorithm_data(unsigned graphid, unsigned nodeid)
+  {
+    Algorithm * alg = algorithm(graphid, nodeid);
+    if (!alg)
+      return FAILED;
+    auto * gdata = ctxt_.graph_data(graphid);
+    if (!gdata || nodeid >= gdata->algdata_.size() || !gdata->algdata_[nodeid])
+      return FAILED;
+    auto fresh = alg->clone_data(gdata->algdata_[nodeid].get());
+    if (!fresh)
+      return FAILED;
+    gdata->algdata_[nodeid] = std::move(fresh);
+    invalidate_subctxt_alg_data(graphid, nodeid);
+    invalidate_reconstruction_cache(graphid);
+    return SUCCESS;
+  }
+
   unsigned Session::new_graph()
   {
     unsigned id = get_free_graph_id_();

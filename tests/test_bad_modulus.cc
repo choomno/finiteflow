@@ -249,6 +249,7 @@ bool zero_parameter_matrices()
   CHECK(!ffIsError(node));
   CHECK(ffLSolveOnlyHomogeneous(g.id,node)==FF_SUCCESS);
   CHECK(ffSetOutputNode(g.id,node)==FF_SUCCESS);
+  CHECK(ffLSolveValidateFullSystem(g.id,node,true)==FF_SUCCESS);
   CHECK(ffLearn(g.id)==FF_SUCCESS);
   FFUInt * output=ffEvaluateGraph(g.id,nullptr,0);
   CHECK(output && output[0]==ffPrimeNo(0)-2);

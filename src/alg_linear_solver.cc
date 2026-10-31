@@ -1,4 +1,5 @@
 #include <fstream>
+#include <numeric>
 #include <fflow/alg_linear_solver.hh>
 
 // In the learning phase, out of all the needed vars, we select the
@@ -7,6 +8,113 @@
 // coefficients.
 
 namespace fflow {
+
+  namespace {
+    // N has an identity block in the free rows.  Checking A*N=0 and
+    // rank(A[:,dependent])=n-free proves that N is the full kernel
+    // at this modular point; checking A*p=b also covers the affine part.
+    Ret check_full_solution(MatrixView original, MatrixView solution,
+                            const std::vector<unsigned> & free, Mod mod)
+    {
+      const unsigned n = original.ncolumns()-1, nf = free.size();
+      std::vector<unsigned> dependent;
+      std::vector<bool> is_free(n, false);
+      for (unsigned j : free) {
+        if (j >= n || is_free[j])
+          return FAILED;
+        is_free[j] = true;
+      }
+      for (unsigned j=0; j<n; ++j)
+        if (!is_free[j])
+          dependent.push_back(j);
+      for (unsigned i=0; i<original.nrows(); ++i) {
+        for (unsigned k=0; k<=nf; ++k) {
+          UInt sum = 0;
+          for (unsigned j=0; j<n; ++j)
+            sum = add_mod(sum, mul_mod(original(i,j), solution(j,k), mod), mod);
+          if (sum != (k == nf ? original(i,n) : 0))
+            return FAILED;
+        }
+      }
+      if (dependent.empty())
+        return SUCCESS;
+      DynamicMatrix lower(original.nrows(), dependent.size()+1);
+      auto mv = lower.getMatrixView();
+      for (unsigned i=0; i<mv.nrows(); ++i) {
+        for (unsigned j=0; j<dependent.size(); ++j)
+          mv(i,j) = original(i,dependent[j]);
+        mv(i,dependent.size()) = 0;
+      }
+      mv.toReducedRowEcholon(mod);
+      std::vector<std::size_t> pivots;
+      mv.dependent_vars(pivots);
+      return pivots.size() == dependent.size() ? SUCCESS : FAILED;
+    }
+
+    void zero_matrix(MatrixView mv)
+    {
+      for (unsigned i=0; i<mv.nrows(); ++i)
+        for (unsigned j=0; j<mv.ncolumns(); ++j)
+          mv(i,j) = 0;
+    }
+  }
+
+  Ret DenseLinearSolver::validate_full_system(bool enabled)
+  {
+    if (!is_mutable() || has_learned() || stage_ != FIRST_)
+      return FAILED;
+    if (enabled) {
+      std::vector<std::size_t> needed;
+      for (unsigned i=0; i<nneeded_ext_; ++i) needed.push_back(needed_ext_[i]);
+      std::sort(needed.begin(), needed.end());
+      if (only_non_homog_ || needed.size() != nvars())
+        return FAILED;
+      for (unsigned i=0; i<needed.size(); ++i)
+        if (needed[i] != i)
+          return FAILED;
+    }
+    full_validation_ = enabled;
+    return SUCCESS;
+  }
+
+
+  Ret DenseLinearSolver::validate_full_solution_(Context * ctxt,
+                                                 AlgInput xin[], Mod mod,
+                                                 AlgorithmData * data,
+                                                 const UInt xout[]) const
+  {
+    auto & d = adata_(data);
+    d.original_.reset(neqs_, nvars()+1);
+    auto original = d.original_.getMatrixView();
+    zero_matrix(original);
+    std::vector<std::size_t> rows(neqs_);
+    std::iota(rows.begin(), rows.end(), 0);
+    d.full_source_ = true;
+    Ret ret = fill_matrix(ctxt, neqs_, rows.data(), xin, mod, data, original);
+    d.full_source_ = false;
+    if (ret != SUCCESS)
+      return FAILED;
+    std::vector<unsigned> free;
+    for (unsigned i=0; i<nnindeps_; ++i) free.push_back(needed_indep_[i]);
+    DynamicMatrix coefficients(nvars(), free.size()+1);
+    auto solution = coefficients.getMatrixView();
+    zero_matrix(solution);
+    for (unsigned j=0; j<free.size(); ++j)
+      solution(free[j],j) = 1;
+    for (unsigned i=0; i<nndeps_; ++i) {
+      const unsigned row = needed_dep_[i];
+      for (unsigned j=0; j<free.size(); ++j)
+        solution(row,j) = xout[i*(free.size()+unsigned(!homog_))+j];
+      if (!homog_)
+        solution(row,free.size()) = xout[i*(free.size()+1)+free.size()];
+    }
+    if (homog_) {
+      auto reduced = mat_(data).getMatrixView(nnindepeqs_, nvars()+1);
+      for (unsigned i=0; i<d.depv_.size(); ++i)
+        solution(d.depv_[i],free.size()) = reduced(i,nvars());
+    }
+    return check_full_solution(original, solution, free, mod);
+  }
 
   void DenseLinearSolver::copy_data(const AlgorithmData * data_in,
                                     AlgorithmData * oth_in) const
@@ -36,6 +144,14 @@ namespace fflow {
                                       const unsigned * needed_vars,
                                       unsigned needed_size)
   {
+    if (full_validation_) {
+      std::vector<unsigned> needed;
+      for (unsigned i=0; i<needed_size; ++i) needed.push_back(needed_vars[i]);
+      std::sort(needed.begin(), needed.end());
+      if (needed.size() != nvars()) return FAILED;
+      for (unsigned i=0; i<needed.size(); ++i)
+        if (needed[i] != i) return FAILED;
+    }
     for (unsigned i=0; i<needed_size; ++i)
       if (needed_vars[i] >= nvars() ||
           !(xinfo_[needed_vars[i]] & flag_t(LSVar::IS_NEEDED))) {
@@ -321,7 +437,7 @@ namespace fflow {
 
     }
 
-    return SUCCESS;
+    return full_validation_ ? validate_full_solution_(ctxt, xin, mod, data, xout) : SUCCESS;
   }
 
   Ret DenseLinearSolver::only_homogeneous(bool flag)
@@ -335,7 +451,7 @@ namespace fflow {
 
   Ret DenseLinearSolver::only_non_homogeneous(bool flag)
   {
-    if (!is_mutable())
+    if (!is_mutable() || (flag && full_validation_))
       return FAILED;
     invalidate();
     only_non_homog_ = flag;
@@ -344,6 +460,97 @@ namespace fflow {
 
 
   // Sparse
+
+  Ret SparseLinearSolver::validate_full_system(bool enabled)
+  {
+    if (!is_mutable() || has_learned() || stage_ != FIRST_ || source_pruned_)
+      return FAILED;
+    if (enabled) {
+      auto needed = requested_vars_;
+      std::sort(needed.begin(), needed.end());
+      if (needed.size() != nvars() || (flag_ & (ONLY_NON_HOMOG_ | NO_BACKSUBST_))
+          || maxcol_ != SparseMatrixRow::END)
+        return FAILED;
+      for (unsigned i=0; i<needed.size(); ++i)
+        if (needed[i] != i)
+          return FAILED;
+    }
+    full_validation_ = enabled;
+    return SUCCESS;
+  }
+
+
+  Ret SparseLinearSolver::validate_full_solution_(Context * ctxt,
+                                                  AlgInput xin[], Mod mod,
+                                                  AlgorithmData * data,
+                                                  const UInt xout[]) const
+  {
+    if (source_pruned_)
+      return FAILED;
+    auto & d = adata_(data);
+    d.original_.resize(neqs_, nvars()+1);
+    std::vector<unsigned> rows(neqs_);
+    std::iota(rows.begin(), rows.end(), 0);
+    d.full_source_ = true;
+    Ret ret = fill_matrix(ctxt, neqs_, rows.data(), xin, mod, data, d.original_);
+    d.full_source_ = false;
+    if (ret != SUCCESS)
+      return FAILED;
+    DynamicMatrix raw(neqs_, nvars()+1);
+    auto original = raw.getMatrixView();
+    zero_matrix(original);
+    for (unsigned i=0; i<neqs_; ++i) {
+      const auto & row = d.original_.row(i);
+      for (unsigned j=0; j<row.size(); ++j)
+        original(i,row.el(j).col) = row.el(j).val.get();
+    }
+    std::vector<unsigned> free;
+    for (unsigned j=0; j<nvars(); ++j)
+      if (!(xinfo_[j] & LSVar::IS_DEP))
+        free.push_back(j);
+    DynamicMatrix coefficients(nvars(), free.size()+1);
+    auto solution = coefficients.getMatrixView();
+    zero_matrix(solution);
+    std::vector<unsigned> position(nvars(), ~unsigned(0));
+    for (unsigned j=0; j<free.size(); ++j) {
+      position[free[j]] = j;
+      solution(free[j],j) = 1;
+    }
+    unsigned offset = 0;
+    const bool homogeneous = flag_ & HOMOG_;
+    for (unsigned i=0; i<nndeps_; ++i) {
+      const unsigned row = needed_dep_[i];
+      if (output_is_sparse()) {
+        for (unsigned variable : (*sparseout_data_)[i]) {
+          if (variable == nvars() && !homogeneous)
+            solution(row,free.size()) = xout[offset++];
+          else if (variable < nvars() && position[variable] != ~unsigned(0))
+            solution(row,position[variable]) = xout[offset++];
+          else
+            return FAILED;
+        }
+      } else {
+        for (unsigned j=0; j<nnindeps_; ++j) {
+          if (needed_indep_[j] >= nvars() || position[needed_indep_[j]] == ~unsigned(0))
+            return FAILED;
+          solution(row,position[needed_indep_[j]]) = xout[offset++];
+        }
+        if (!homogeneous)
+          solution(row,free.size()) = xout[offset++];
+      }
+    }
+    if (offset != nparsout)
+      return FAILED;
+    if (homogeneous) {
+      const auto & reduced = mat_(data);
+      for (unsigned i=0; i<reduced.nrows(); ++i) {
+        const unsigned variable = reduced.row(i).first_nonzero_column();
+        if (variable < nvars())
+          solution(variable,free.size()) = reduced(i,nvars());
+      }
+    }
+    return check_full_solution(original, solution, free, mod);
+  }
 
   void SparseLinearSolver::copy_data(const AlgorithmData * datain,
                                      AlgorithmData * dataout) const
@@ -433,6 +640,9 @@ namespace fflow {
   Ret SparseLinearSolver::load_info(AlgorithmData * datain,
                                     const char * filename)
   {
+    // Legacy layout files do not record an intact original source system.
+    if (full_validation_)
+      return FAILED;
     auto & data = *static_cast<SparseLinearSolverData*>(datain);
     std::ifstream file;
     file.open(filename, std::ios::binary);
@@ -539,6 +749,8 @@ namespace fflow {
 #undef LOAD_INT32
 #undef LOAD_FLAG
 
+    source_pruned_ = true; // Original-source preservation cannot be established.
+    requested_vars_.clear();
     return SUCCESS;
   }
 
@@ -618,6 +830,14 @@ namespace fflow {
                                        const unsigned * needed_vars,
                                        unsigned needed_size)
   {
+    if (full_validation_) {
+      std::vector<unsigned> needed;
+      for (unsigned i=0; i<needed_size; ++i) needed.push_back(needed_vars[i]);
+      std::sort(needed.begin(), needed.end());
+      if (needed.size() != nvars()) return FAILED;
+      for (unsigned i=0; i<needed.size(); ++i)
+        if (needed[i] != i) return FAILED;
+    }
     if (!is_mutable())
       return MUTABILITY_ERROR;
 
@@ -638,6 +858,7 @@ namespace fflow {
       xinfo_[i] &= ~flag_t(LSVar::IS_NEEDED_ANY);
     for (unsigned i=0; i<needed_size; ++i)
       xinfo_[needed_vars[i]] |= LSVar::IS_NEEDED;
+    requested_vars_.assign(needed_vars, needed_vars+needed_size);
 
     if (stage_ >= SECOND_) {
       relearn_needed_(data);
@@ -999,7 +1220,7 @@ namespace fflow {
 
     }
 
-    return SUCCESS;
+    return full_validation_ ? validate_full_solution_(ctxt, xin, mod, data, xout) : SUCCESS;
   }
 
 
@@ -1073,7 +1294,7 @@ namespace fflow {
 
   Ret SparseLinearSolver::only_non_homogeneous(bool flag)
   {
-    if (!is_mutable() || stage_ != FIRST_)
+    if (!is_mutable() || stage_ != FIRST_ || (flag && full_validation_))
       return FAILED;
     invalidate();
     if (flag) {
@@ -1106,6 +1327,8 @@ namespace fflow {
                                                     bool backsubst,
                                                     bool keep_all_outs)
   {
+    if (full_validation_)
+      return FAILED;
     Ret ret = sparse_output();
     if (ret != SUCCESS)
       return ret;

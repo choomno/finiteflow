@@ -321,6 +321,7 @@ namespace fflow {
     AlgorithmData * alg_data(unsigned graphid, unsigned nodeid);
     void invalidate_subctxt_alg_data(unsigned graphid, unsigned nodeid);
     void invalidate_reconstruction_cache(unsigned graphid);
+    Ret refresh_algorithm_data(unsigned graphid, unsigned nodeid);
 
     void delete_graph(unsigned graphid);
     unsigned delete_node(unsigned graphid, unsigned nodeid);
