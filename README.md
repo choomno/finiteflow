@@ -25,6 +25,39 @@ This implementation is written in C++ and includes C, Python and
 Mathematica interfaces.
 
 
+Maintained fork
+---------------
+
+This repository is a fork of [Tiziano Peraro's FiniteFlow](https://github.com/peraro/finiteflow),
+based on version 2.0 at upstream commit
+[`7d512022849356760620800e8aba7c2ab803d757`](https://github.com/peraro/finiteflow/commit/7d512022849356760620800e8aba7c2ab803d757).
+The upstream paper and software remain the references for the reconstruction framework.
+This fork develops finite-field evaluation reliability and explicit reconstruction-state
+controls for certified computer algebra applications. A reconstructed function is a
+candidate; applications must independently verify the required algebraic identity.
+
+The added C/Python controls are `LSolveValidateFullSystem`,
+`ResetLSolveLearning`, `SetReconstructionShift`, `GetReconstructionShift`,
+`ResetReconstruction`, and extended bounded `LearnEx` options. Their Python
+API level is `fflow.__fork_api_version__ == 1`; `fflow.__fork__` identifies
+this maintained copy. Record an exact source revision and library hash for
+reproducibility. These controls are not added to the Mathematica interface.
+
+Reliability tests
+-----------------
+
+Configure an out-of-source build with `cmake -S . -B build`. Then build the
+small test executables and run them:
+
+```sh
+cmake --build build --target reliability-tests --parallel 2
+(cd build && ctest --output-on-failure)
+```
+
+The tests use explicit checks in release builds. The CI workflow tests with
+and without FLINT, builds the Python interface, and runs bounded Python
+binding tests. No large algebra computation is part of CI.
+
 Installation
 ------------
 

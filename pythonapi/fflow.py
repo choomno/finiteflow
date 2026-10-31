@@ -275,6 +275,8 @@ _lib.ffInit()
 FFLOW_VERSION = _lib.ffVersion()
 FFLOW_VERSION_MINOR = _lib.ffVersionMinor()
 __version__ = str(FFLOW_VERSION) + "." + str(FFLOW_VERSION_MINOR)
+__fork__ = "choomno/finiteflow"
+__fork_api_version__ = 1
 
 def IsError(arg):
     return _lib.ffIsError(arg)

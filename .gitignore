@@ -51,3 +51,27 @@ testjson
 tests_json/tinvsys.json
 pythonapi/_cffi_fflow.c
 pythonapi/__pycache__/*
+
+# Local build/install outputs
+/build/
+/install/
+
+# Private development instructions and working notes
+AGENTS.md
+CLAUDE.md
+CONTRIBUTING.md
+CONTRIBUTING.MD
+.claude/
+.codex/
+.agents/
+
+# In-source CMake/CTest and Python-interface products
+CTestTestfile.cmake
+DartConfiguration.tcl
+Testing/
+_python_gen/
+test_bad_modulus
+test_reconstruction_controls
+testbench
+test_parsed_copy
+test_strict_system
