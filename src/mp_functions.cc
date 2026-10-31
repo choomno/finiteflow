@@ -12,12 +12,12 @@ namespace fflow {
     std::size_t newsize = oth.monomials_.size();
     monomials_.resize(newsize);
     cq_.resize(newsize);
-    cz_.resize(newsize);
+    // Literal/unserialized coefficients need not have CRT residues yet.
+    cz_ = oth.cz_;
 
     for (std::size_t i = 0; i<newsize; ++i) {
       monomials_[i] = op_.copy(oth.monomials_[i]);
       cq_[i] = oth.cq_[i];
-      cz_[i] = oth.cz_[i];
     }
   }
 

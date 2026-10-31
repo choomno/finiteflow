@@ -1,0 +1,35 @@
+name: Native integration
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reliability:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        flint: ["ON", "OFF"]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libgmp-dev libflint-dev
+      - name: Configure native library
+        run: >-
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DFFLOW_USE_FLINT=${{ matrix.flint }}
+          -DFFLOW_MATHEMATICA=OFF -DFFLOW_PYTHON=OFF
+          -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/finiteflow"
+      - name: Build bounded integration tests
+        run: cmake --build build --target reliability-tests --parallel 2
+      - name: Check modular arithmetic and reconstruction controls
+        run: ctest --test-dir build --output-on-failure --no-tests=error

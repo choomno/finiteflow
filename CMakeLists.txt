@@ -251,6 +251,20 @@ if(NOT TARGET tests)
 endif()
 
 
+# Bounded arithmetic regressions; benchmarks remain outside CTest.
+include(CTest)
+if(BUILD_TESTING)
+    set(FFLOW_RELIABILITY_TESTS test_parsed_copy)
+    foreach(target ${FFLOW_RELIABILITY_TESTS})
+        add_executable(${target} EXCLUDE_FROM_ALL tests/${target}.cc)
+        target_link_libraries(${target} PRIVATE fflow ${LIBS})
+        add_test(NAME ${target} COMMAND ${target})
+        set_tests_properties(${target} PROPERTIES TIMEOUT 30)
+    endforeach()
+    add_custom_target(reliability-tests DEPENDS ${FFLOW_RELIABILITY_TESTS})
+endif()
+
+
 # mathematica
 
 set (CMAKE_MODULE_PATH
