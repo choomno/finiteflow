@@ -194,7 +194,8 @@ namespace fflow {
     MPInt c;
     MPInt mpmod(mod.n());
     for (auto & m : monomials_) {
-      rat_mod(cq_[i], mpmod, c);
+      if (!rat_mod(cq_[i], mpmod, c))
+        return FAILED;
       m.coeff() = c.to_uint();
       res = add_mod(res, op_.eval(m,x,mod), mod);
       ++i;
@@ -202,21 +203,24 @@ namespace fflow {
     return res;
   }
 
-  void MPReconstructedPoly::monomialsMod(Mod mod) const
+  Ret MPReconstructedPoly::monomialsMod(Mod mod) const
   {
     std::size_t i = 0;
     MPInt c;
     MPInt mpmod(mod.n());
     for (auto & m : monomials_) {
-      rat_mod(cq_[i], mpmod, c);
+      if (!rat_mod(cq_[i], mpmod, c))
+        return FAILED;
       m.coeff() = c.to_uint();
       ++i;
     }
+    return SUCCESS;
   }
 
   HornerPtr MPReconstructedPoly::toHornerPtr(Mod mod) const
   {
-    monomialsMod(mod);
+    if (monomialsMod(mod) != SUCCESS)
+      return HornerPtr();
     return hornerptr_from_sparse_poly(monomials_.data(),
                                       monomials_.size(),
                                       nvars());
@@ -310,17 +314,21 @@ namespace fflow {
   }
 
 
-  void horner_map_mprational(const MPRational * coeff, Mod mod,
+  Ret horner_map_mprational(const MPRational * coeff, Mod mod,
                              std::size_t size, const unsigned * mpos,
                              UInt * dest)
   {
+    if (size && !dest)
+      return FAILED;
     MPInt c;
     MPInt mmod(mod.n());
 
     for (std::size_t j=0; j<size; ++j) {
-      rat_mod(coeff[j], mmod, c);
+      if (!rat_mod(coeff[j], mmod, c))
+        return FAILED;
       dest[mpos[j]] = c.to_uint();
     }
+    return SUCCESS;
   }
 
 

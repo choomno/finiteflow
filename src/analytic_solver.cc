@@ -3,10 +3,10 @@
 
 namespace fflow {
 
-  void AnalyticDenseSolverData::reset_mod_(const AnalyticDenseSolver & ls,
+  Ret AnalyticDenseSolverData::reset_mod_(const AnalyticDenseSolver & ls,
                                            Mod mod)
   {
-    this_mod_ = mod.n();
+    this_mod_ = 0;
     if (xp_.get() == nullptr)
       xp_.reset(new UInt[ls.nparsin[0]]);
     const unsigned n_cols = c.columns();
@@ -14,7 +14,10 @@ namespace fflow {
     const std::size_t * ieq = ls.indep_eqs();
     for (unsigned i=0; i<nindepeqs; ++i)
       for (unsigned j=0; j<n_cols; ++j)
-        horner_ratfunmap_mprational(ls.cmap(ieq[i],j), mod, c(ieq[i],j));
+        if (horner_ratfunmap_mprational(ls.cmap(ieq[i],j), mod, c(ieq[i],j)) != SUCCESS)
+          return FAILED;
+    this_mod_ = mod.n();
+    return SUCCESS;
   }
 
   Ret AnalyticDenseSolver::fill_matrix(Context * ctxt,
@@ -27,8 +30,8 @@ namespace fflow {
     auto & data = *static_cast<AnalyticDenseSolverData*>(datain);
     const unsigned nin = nparsin[0];
 
-    if (mod.n() != data.this_mod_)
-      data.reset_mod_(*this, mod);
+    if (mod.n() != data.this_mod_ && data.reset_mod_(*this, mod) != SUCCESS)
+      return FAILED;
 
     const UInt * xi = xin[0];
     UInt * xp = data.xp_.get();
@@ -78,10 +81,10 @@ namespace fflow {
   }
 
 
-  void AnalyticSparseSolverData::reset_mod_(const AnalyticSparseSolver & ls,
+  Ret AnalyticSparseSolverData::reset_mod_(const AnalyticSparseSolver & ls,
                                             Mod mod)
   {
-    this_mod_ = mod.n();
+    this_mod_ = 0;
     if (xp_.get() == nullptr)
       xp_.reset(new UInt[ls.nparsin[0]]);
     reset_evals_(ls);
@@ -97,10 +100,13 @@ namespace fflow {
       for (; cols<cols_end; ++idx, ++cols)
         if ((info[*cols] & LSVar::IS_NON_ZERO)
             && evals_[*idx] == MISSING_SAMPLES) {
-          horner_ratfunmap_mprational(ls.cmap[*idx], mod, c[*idx]);
+          if (horner_ratfunmap_mprational(ls.cmap[*idx], mod, c[*idx]) != SUCCESS)
+            return FAILED;
           evals_[*idx] = 1;
         }
     }
+    this_mod_ = mod.n();
+    return SUCCESS;
   }
 
   void AnalyticSparseSolver::delete_unneeded_eqs(AlgorithmData * datain)
@@ -165,8 +171,8 @@ namespace fflow {
   {
     auto & data = *static_cast<AnalyticSparseSolverData*>(datain);
 
-    if (mod.n() != data.this_mod_)
-      data.reset_mod_(*this, mod);
+    if (mod.n() != data.this_mod_ && data.reset_mod_(*this, mod) != SUCCESS)
+      return FAILED;
 
     data.reset_evals_(*this);
 
@@ -251,11 +257,11 @@ namespace fflow {
 
 
 
-  void
+  Ret
   AnalyticSparseSolverExData::reset_mod_(const AnalyticSparseSolverEx & ls,
                                          Mod mod)
   {
-    this_mod_ = mod.n();
+    this_mod_ = 0;
     if (xp_.get() == nullptr)
       xp_.reset(new UInt[ls.nparsin[0]]);
     reset_evals_(ls);
@@ -273,11 +279,14 @@ namespace fflow {
           const AnalyticSparseSolverEx::Weight * w = ws->w.get();
           for (unsigned j=0; j<ws->size; ++j, ++w)
             if (evals_[w->idx] == MISSING_SAMPLES) {
-              horner_ratfunmap_mprational(ls.cmap[w->idx], mod, c[w->idx]);
+              if (horner_ratfunmap_mprational(ls.cmap[w->idx], mod, c[w->idx]) != SUCCESS)
+                return FAILED;
               evals_[w->idx] = 1;
             }
         }
     }
+    this_mod_ = mod.n();
+    return SUCCESS;
   }
 
   void AnalyticSparseSolverEx::delete_unneeded_eqs(AlgorithmData * datain)
@@ -345,8 +354,8 @@ namespace fflow {
   {
     auto & data = *static_cast<AnalyticSparseSolverExData*>(datain);
 
-    if (mod.n() != data.this_mod_)
-      data.reset_mod_(*this, mod);
+    if (mod.n() != data.this_mod_ && data.reset_mod_(*this, mod) != SUCCESS)
+      return FAILED;
 
     data.reset_evals_(*this);
 
@@ -427,8 +436,8 @@ namespace fflow {
   {
     auto & data = *static_cast<AnalyticSparseSolverExData*>(datain);
 
-    if (mod.n() != data.this_mod_)
-      data.reset_mod_(*this, mod);
+    if (mod.n() != data.this_mod_ && data.reset_mod_(*this, mod) != SUCCESS)
+      return FAILED;
 
     data.reset_evals_(*this);
 

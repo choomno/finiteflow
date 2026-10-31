@@ -19,6 +19,7 @@ namespace fflow {
 
   void DenseLinearSolver::reset(AlgorithmData * data)
   {
+    adata_(data).invalidate_modulus();
     adata_(data).depv_.clear();
     indepv_.clear();
 
@@ -544,6 +545,7 @@ namespace fflow {
 
   Ret SparseLinearSolver::reset(AlgorithmData * data)
   {
+    adata_(data).invalidate_modulus();
     nnindepeqs_ = adata_(data).mat_.nrows();
     for (unsigned i=0; i<nnindepeqs_; ++i)
       indepeqs_[i] = i;

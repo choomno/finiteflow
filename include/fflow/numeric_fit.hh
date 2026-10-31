@@ -22,10 +22,12 @@ namespace fflow {
     std::unique_ptr<UInt[]> lsubvar;
     std::unique_ptr<UInt[]> shoup, lvar_shoup;
 
+    void invalidate_modulus() override { this_mod_ = 0; }
+
   private:
     friend class NumericFit;
 
-    void reset_mod_(const NumericFit & alg, Mod mod);
+    Ret reset_mod_(const NumericFit & alg, Mod mod);
 
   private:
     UInt this_mod_ = 0;

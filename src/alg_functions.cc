@@ -4,15 +4,18 @@
 
 namespace fflow {
 
-  void AnalyticFunctionData::reset_mod_(Mod mod, const AnalyticFunction & alg)
+  Ret AnalyticFunctionData::reset_mod_(Mod mod, const AnalyticFunction & alg)
   {
     unsigned nparsin = alg.nparsin[0];
     unsigned nparsout = alg.nparsout;
     if (xp_.get() == nullptr)
       xp_.reset(new UInt[nparsin]);
-    this_mod_ = mod.n();
+    this_mod_ = 0;
     for (unsigned i=0; i<nparsout; ++i)
-      horner_ratfunmap_mprational(alg.fmap[i], mod, f[i]);
+      if (horner_ratfunmap_mprational(alg.fmap[i], mod, f[i]) != SUCCESS)
+        return FAILED;
+    this_mod_ = mod.n();
+    return SUCCESS;
   }
 
   void AnalyticFunction::init(unsigned npars, unsigned nfunctions,
@@ -36,8 +39,8 @@ namespace fflow {
   {
     auto & data = *static_cast<AnalyticFunctionData*>(datain);
 
-    if (mod.n() != data.this_mod_)
-      data.reset_mod_(mod,*this);
+    if (mod.n() != data.this_mod_ && data.reset_mod_(mod,*this) != SUCCESS)
+      return FAILED;
 
     const UInt * xin = xinin[0];
     UInt * xp = data.xp_.get();
@@ -88,18 +91,21 @@ namespace fflow {
     data.resize(val_.size());
   }
 
-  void EvalRationalNumbers::init_mod_(EvalRationalNumbersData & data,
+  Ret EvalRationalNumbers::init_mod_(EvalRationalNumbersData & data,
                                       Mod mod) const
   {
     MPInt mmod(mod.n());
     MPInt z;
     UInt * val = data.val_.data();
+    data.mod_ = 0;
     unsigned idx=0;
     for (const auto & q : val_) {
-      rat_mod(q, mmod, z);
+      if (!rat_mod(q, mmod, z))
+        return FAILED;
       val[idx++] = z.to_uint();
     }
     data.mod_ = mod.n();
+    return SUCCESS;
   }
 
   Ret EvalRationalNumbers::evaluate(Context*,
@@ -108,8 +114,8 @@ namespace fflow {
                                     UInt xout[]) const
   {
     auto & data = *static_cast<EvalRationalNumbersData*>(datain);
-    if (mod.n() != data.mod_)
-      init_mod_(data, mod);
+    if (mod.n() != data.mod_ && init_mod_(data, mod) != SUCCESS)
+      return FAILED;
 
     const unsigned n = nparsout;
     const UInt * val = data.val_.data();
@@ -246,18 +252,21 @@ namespace fflow {
     return std::move(newptr);
   }
 
-  void
+  Ret
   AnalyticExpression::reset_mod_(Mod mod, AnalyticExpressionData & data) const
   {
     MPInt mmod(mod.n());
     MPInt z;
     UInt * val = data.bignumbers_.get();
+    data.this_mod_ = 0;
     unsigned idx=0;
     for (const auto & q : bignumbers_) {
-      rat_mod(q, mmod, z);
+      if (!rat_mod(q, mmod, z))
+        return FAILED;
       val[idx++] = z.to_uint();
     }
     data.this_mod_ = mod.n();
+    return SUCCESS;
   }
 
   Ret AnalyticExpression::evaluate(Context *,
@@ -267,8 +276,8 @@ namespace fflow {
   {
     AnalyticExpressionData & data = *static_cast<AnalyticExpressionData*>(datain);
 
-    if (data.this_mod_ != mod.n())
-      reset_mod_(mod, data);
+    if (data.this_mod_ != mod.n() && reset_mod_(mod, data) != SUCCESS)
+      return FAILED;
 
     const UInt * bignums = data.bignumbers_.get();
     const UInt * in = xin[0];

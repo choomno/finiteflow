@@ -5,29 +5,33 @@ namespace fflow {
 
   namespace  {
 
-    void mpmap_mpdata_(const std::vector<std::vector<MPHornerMap>> & cmpmap,
+    Ret mpmap_mpdata_(const std::vector<std::vector<MPHornerMap>> & cmpmap,
                        std::vector<HornerHornerRatFunMap> & cmap, Mod mod,
                        const LinearFit::flag_t * xinf = nullptr)
     {
       const auto * cf = cmpmap.data();
       for (auto & cfun : cmap) {
         if (xinf == nullptr || (*xinf++ & LSVar::IS_NON_ZERO))
-          horner2_polymap_mprational(*cf, mod, cfun);
+          if (horner2_polymap_mprational(*cf, mod, cfun) != SUCCESS)
+            return FAILED;
         ++cf;
       }
+      return SUCCESS;
     }
 
   } // namespace
 
 
-  void AnalyticFitData::reset_mod_(const AnalyticFit & alg, Mod mod)
+  Ret AnalyticFitData::reset_mod_(const AnalyticFit & alg, Mod mod)
   {
-    this_mod_ = mod.n();
-    MPInt tmp, mmod(mod.n());
+    this_mod_ = 0;
     const LinearFit::flag_t * xinf = alg.xinfo();
-    mpmap_mpdata_(alg.cmpmap, cmap, mod, xinf);
-    mpmap_mpdata_(alg.integrmpmap, integrmap, mod);
-    mpmap_mpdata_(alg.lexprmpmap, lexprmap, mod);
+    if (mpmap_mpdata_(alg.cmpmap, cmap, mod, xinf) != SUCCESS ||
+        mpmap_mpdata_(alg.integrmpmap, integrmap, mod) != SUCCESS ||
+        mpmap_mpdata_(alg.lexprmpmap, lexprmap, mod) != SUCCESS)
+      return FAILED;
+    this_mod_ = mod.n();
+    return SUCCESS;
   }
 
   Ret AnalyticFit::init(unsigned ncoeffs, unsigned nparams,
@@ -79,8 +83,8 @@ namespace fflow {
   {
     auto & data = *static_cast<AnalyticFitData*>(datain);
 
-    if (data.this_mod_ != mod.n())
-      data.reset_mod_(*this, mod);
+    if (data.this_mod_ != mod.n() && data.reset_mod_(*this, mod) != SUCCESS)
+      return FAILED;
 
     UInt * ww = ctxt->ww.get();
 

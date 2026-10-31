@@ -27,10 +27,12 @@ namespace fflow {
     std::unique_ptr<UInt[]> lsubvar;
     std::unique_ptr<UInt[]> shoup, lvar_shoup;
 
+    void invalidate_modulus() override { this_mod_ = 0; }
+
   private:
     friend class AnalyticFit;
 
-    void reset_mod_(const AnalyticFit & alg, Mod mod);
+    Ret reset_mod_(const AnalyticFit & alg, Mod mod);
 
   private:
     UInt this_mod_ = 0;

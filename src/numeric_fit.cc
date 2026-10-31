@@ -3,11 +3,10 @@
 
 namespace fflow {
 
-  void NumericFitData::reset_mod_(const NumericFit & alg, Mod mod)
+  Ret NumericFitData::reset_mod_(const NumericFit & alg, Mod mod)
   {
-    this_mod_ = mod.n();
+    this_mod_ = 0;
 
-    MPInt tmp, mmod(mod.n());
 
     const LinearFit::flag_t * xinf = alg.xinfo();
     HornerRatFunPtr * dest = nullptr;
@@ -15,17 +14,22 @@ namespace fflow {
     dest = c.data();
     for (auto & cf : alg.cmap) {
       if ((*xinf++ & LSVar::IS_NON_ZERO))
-        horner_ratfunmap_mprational(cf, mod, *dest);
+        if (horner_ratfunmap_mprational(cf, mod, *dest) != SUCCESS)
+          return FAILED;
       ++dest;
     }
 
     dest = integr.data();
     for (auto & cf : alg.integrmap)
-      horner_ratfunmap_mprational(cf, mod, *(dest++));
+      if (horner_ratfunmap_mprational(cf, mod, *(dest++)) != SUCCESS)
+        return FAILED;
 
     dest = lexpr.data();
     for (auto & cf : alg.lexprmap)
-      horner_ratfunmap_mprational(cf, mod, *(dest++));
+      if (horner_ratfunmap_mprational(cf, mod, *(dest++)) != SUCCESS)
+        return FAILED;
+    this_mod_ = mod.n();
+    return SUCCESS;
   }
 
   Ret NumericFit::init(unsigned ncoeffs,
@@ -77,8 +81,8 @@ namespace fflow {
   {
     auto & data = *static_cast<NumericFitData*>(datain);
 
-    if (data.this_mod_ != mod.n())
-      data.reset_mod_(*this, mod);
+    if (data.this_mod_ != mod.n() && data.reset_mod_(*this, mod) != SUCCESS)
+      return FAILED;
 
     return SUCCESS;
   }
