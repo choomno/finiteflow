@@ -43,6 +43,12 @@ API level is `fflow.__fork_api_version__ == 1`; `fflow.__fork__` identifies
 this maintained copy. Record an exact source revision and library hash for
 reproducibility. These controls are not added to the Mathematica interface.
 
+Strict validation checks the original equations and dependent-column rank at
+every modular evaluation. It currently materializes dense original-system and
+dependent-column buffers and performs a dense rank calculation even for sparse
+inputs. Each evaluator clone has its own checking storage, so additional native
+threads increase the memory required for these buffers.
+
 Reliability tests
 -----------------
 
