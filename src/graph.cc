@@ -2,6 +2,7 @@
 #include <chrono>
 #include <fflow/graph.hh>
 #include <fflow/mp_gcd.hh>
+#include <fflow/alg_linear_solver.hh>
 
 #define ENSURE_G_MUTABLE(g)           \
   do {                                \
@@ -278,8 +279,11 @@ namespace fflow {
     nodes_[0]->depth_ = 0;
     nodes_[0]->id_ = 0;
 
+    if (nparsin.size() != 0 && nparsin[0] != nvars)
+      configured_shift_.clear();
     nparsin.resize(1);
     nparsin[0] = nvars;
+    invalidate_reconstruction_cache();
 
     if (session_) {
       GraphData & graphdata = graph_data_();
@@ -619,6 +623,52 @@ namespace fflow {
       g->invalidate_reconstruction_cache();
   }
 
+  Ret Session::reset_reconstruction(unsigned graphid)
+  {
+    Graph * g = graph(graphid);
+    if (!g || !g->is_mutable())
+      return FAILED;
+    g->invalidate_reconstruction_cache();
+    return SUCCESS;
+  }
+
+  Ret Session::set_reconstruction_shift(unsigned graphid,
+                                         const UInt * shift, unsigned size)
+  {
+    Graph * g = graph(graphid);
+    if (!g || !g->is_mutable() || g->input_vars_not_set())
+      return FAILED;
+    if (shift) {
+      if (size != g->nparsin[0])
+        return FAILED;
+      const UInt smallest_prime = BIG_UINT_PRIMES[BIG_UINT_PRIMES_SIZE-1];
+      for (unsigned i=0; i<size; ++i)
+        if (shift[i] >= smallest_prime)
+          return FAILED;
+      g->configured_shift_.assign(shift, shift+size);
+    } else {
+      if (size)
+        return FAILED;
+      g->configured_shift_.clear();
+    }
+    g->invalidate_reconstruction_cache();
+    return SUCCESS;
+  }
+
+  Ret Session::get_reconstruction_shift(unsigned graphid,
+                                         std::vector<UInt> & shift)
+  {
+    Graph * g = graph(graphid);
+    if (!g || g->input_vars_not_set())
+      return FAILED;
+    make_reconstructible_(graphid);
+    const unsigned size = g->nparsin[0];
+    shift.clear();
+    if (size)
+      shift.assign(g->rec_data().shift.get(), g->rec_data().shift.get()+size);
+    return SUCCESS;
+  }
+
   Ret Session::refresh_algorithm_data(unsigned graphid, unsigned nodeid)
   {
     Algorithm * alg = algorithm(graphid, nodeid);
@@ -634,6 +684,27 @@ namespace fflow {
     invalidate_subctxt_alg_data(graphid, nodeid);
     invalidate_reconstruction_cache(graphid);
     return SUCCESS;
+  }
+
+  Ret Session::reset_lsolve_learning(unsigned graphid)
+  {
+    Graph * g = graph(graphid);
+    if (!g || !g->is_mutable() || !g->out_node())
+      return FAILED;
+    Algorithm * alg = g->out_node()->algorithm();
+    if (!alg->is_mutable())
+      return FAILED;
+    auto * data = alg_data(graphid, g->out_node_id());
+    Ret ret = FAILED;
+    if (auto * dense = dynamic_cast<DenseLinearSolver *>(alg))
+      ret = dense->restart_learning(data);
+    else if (auto * sparse = dynamic_cast<SparseLinearSolver *>(alg))
+      ret = sparse->restart_learning(data);
+    if (ret != SUCCESS)
+      return FAILED;
+    g->set_learned(false);
+    g->nparsout = 0;
+    return refresh_algorithm_data(graphid, g->out_node_id());
   }
 
   unsigned Session::new_graph()
@@ -793,8 +864,9 @@ namespace fflow {
     auto & shift = graphs_[id]->rec_data().shift;
     if (nvars)
       shift.reset(new UInt[nvars]);
+    const auto & configured = graphs_[id]->configured_shift_;
     for (unsigned i=0; i<nvars; ++i)
-      shift[i] = sample_uint(OFFSET_4, i, mod);
+      shift[i] = configured.size() == nvars ? configured[i] : sample_uint(OFFSET_4, i, mod);
   }
 
   Ret Session::learn(unsigned graphid)
@@ -815,9 +887,14 @@ namespace fflow {
 
     const LearningOptions & opt = node->learn_opt;
 
+    if (opt.prime_no >= BIG_UINT_PRIMES_SIZE
+        || (opt.n_learning && opt.n_learning < graph.min_learn_times()))
+      return FAILED;
+
     Ret ret = graph.learn_all(&ctxt_, Mod(BIG_UINT_PRIMES[opt.prime_no]),
                               ctxt_.graph_data(graphid),
-                              opt.n_singular);
+                              opt.n_singular,
+                              opt.n_learning ? opt.n_learning : graph.min_learn_times());
     node->alg_->set_learned(graph.has_learned());
 
     if (ret == SUCCESS) {

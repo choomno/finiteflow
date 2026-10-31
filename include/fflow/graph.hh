@@ -257,6 +257,7 @@ namespace fflow {
     unsigned out_node_ = ALG_NO_ID;
     std::vector<char> mark_nodes_;
     std::unique_ptr<AlgRecData> rec_data_;
+    std::vector<UInt> configured_shift_;
     Session * session_ = nullptr;
     unsigned id_ = ALG_NO_ID;
     unsigned refcount_ = 0;
@@ -321,6 +322,10 @@ namespace fflow {
     AlgorithmData * alg_data(unsigned graphid, unsigned nodeid);
     void invalidate_subctxt_alg_data(unsigned graphid, unsigned nodeid);
     void invalidate_reconstruction_cache(unsigned graphid);
+    Ret reset_reconstruction(unsigned graphid);
+    Ret set_reconstruction_shift(unsigned graphid, const UInt * shift, unsigned size);
+    Ret get_reconstruction_shift(unsigned graphid, std::vector<UInt> & shift);
+    Ret reset_lsolve_learning(unsigned graphid);
     Ret refresh_algorithm_data(unsigned graphid, unsigned nodeid);
 
     void delete_graph(unsigned graphid);

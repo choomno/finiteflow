@@ -507,6 +507,12 @@ extern "C" {
 
   FFStatus ffLearn(FFGraph graph)
   {
+    FFNode node = ffGetOutputNode(graph);
+    if (!session.node_exists(graph, node))
+      return FF_ERROR;
+    // Legacy Learn retains its configured prime, with the original budgets.
+    auto & opt = session.node(graph,node)->learn_opt;
+    opt.n_singular = opt.n_learning = 0;
     if (session.learn(graph) != SUCCESS)
       return FF_ERROR;
     return FF_SUCCESS;
@@ -514,14 +520,55 @@ extern "C" {
 
   FFStatus ffLearnEx(FFGraph graph, FFLearnOptions opt)
   {
-    if (opt.prime_no) {
-      FFNode node = ffGetOutputNode(graph);
-      if (!session.node_exists(graph, node))
-        return FF_ERROR;
-      LearningOptions & lopt = session.node(graph, node)->learn_opt;
-      lopt.prime_no = opt.prime_no;
-    }
+    FFNode node = ffGetOutputNode(graph);
+    if (!session.node_exists(graph, node) || opt.prime_no >= BIG_UINT_PRIMES_SIZE)
+      return FF_ERROR;
+    LearningOptions & lopt = session.node(graph, node)->learn_opt;
+    lopt.prime_no = opt.prime_no;
+    lopt.n_singular = lopt.n_learning = 0;
     return ffLearn(graph);
+  }
+
+  FFStatus ffLearnWithOptions(FFGraph graph, FFGraphLearnOptions opt)
+  {
+    FFNode node = ffGetOutputNode(graph);
+    if (!session.node_exists(graph, node) || opt.prime_no >= BIG_UINT_PRIMES_SIZE)
+      return FF_ERROR;
+    LearningOptions & lopt = session.node(graph, node)->learn_opt;
+    lopt.prime_no = opt.prime_no;
+    lopt.n_singular = opt.n_singular;
+    lopt.n_learning = opt.n_learning;
+    return session.learn(graph) == SUCCESS ? FF_SUCCESS : FF_ERROR;
+  }
+
+  FFStatus ffResetReconstruction(FFGraph graph)
+  {
+    return session.reset_reconstruction(graph) == SUCCESS ? FF_SUCCESS : FF_ERROR;
+  }
+
+  FFStatus ffSetReconstructionShift(FFGraph graph, const FFUInt * shift, unsigned size)
+  {
+    return session.set_reconstruction_shift(graph, shift, size) == SUCCESS ? FF_SUCCESS : FF_ERROR;
+  }
+
+  FFUInt * ffGetReconstructionShift(FFGraph graph, unsigned * size)
+  {
+    if (!size)
+      return nullptr;
+    std::vector<UInt> shift;
+    if (session.get_reconstruction_shift(graph, shift) != SUCCESS)
+      return nullptr;
+    *size = shift.size();
+    auto * output = static_cast<FFUInt *>(malloc(sizeof(FFUInt)*std::max<std::size_t>(1,shift.size())));
+    if (!output)
+      return nullptr;
+    std::copy(shift.begin(), shift.end(), output);
+    return output;
+  }
+
+  FFStatus ffResetLSolveLearning(FFGraph graph)
+  {
+    return session.reset_lsolve_learning(graph) == SUCCESS ? FF_SUCCESS : FF_ERROR;
   }
 
   FFStatus ffLSolveValidateFullSystem(FFGraph graph, FFNode node, bool enabled)

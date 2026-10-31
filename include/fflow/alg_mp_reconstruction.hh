@@ -10,6 +10,7 @@ namespace fflow {
   struct LearningOptions {
     unsigned n_singular = 0;
     unsigned prime_no = 0;
+    unsigned n_learning = 0; // zero uses the algorithm's minimum
   };
 
 

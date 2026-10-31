@@ -254,7 +254,7 @@ endif()
 # Bounded arithmetic regressions; benchmarks remain outside CTest.
 include(CTest)
 if(BUILD_TESTING)
-    set(FFLOW_RELIABILITY_TESTS test_parsed_copy test_bad_modulus test_strict_system)
+    set(FFLOW_RELIABILITY_TESTS test_parsed_copy test_bad_modulus test_strict_system test_reconstruction_controls)
     foreach(target ${FFLOW_RELIABILITY_TESTS})
         add_executable(${target} EXCLUDE_FROM_ALL tests/${target}.cc)
         target_link_libraries(${target} PRIVATE fflow ${LIBS})

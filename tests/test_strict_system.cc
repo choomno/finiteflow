@@ -83,6 +83,7 @@ bool legacy_layout_cannot_claim_original_source()
   CHECK(solver.validate_full_system(false)==fflow::SUCCESS);
   CHECK(solver.load_info(&data,filename)==fflow::SUCCESS);
   CHECK(!solver.source_available());
+  CHECK(solver.restart_learning(&data)==fflow::FAILED);
   CHECK(solver.validate_full_system()==fflow::FAILED);
   CHECK(std::remove(filename)==0);
   return true;
