@@ -113,6 +113,15 @@ namespace fflow {
   public:
     void delete_unneeded_eqs(AlgorithmData * data);
 
+    // Weighted learning can discard sampled-zero entries from its source rows.
+    // Until those rows are preserved, it cannot promise full-system validation.
+    Ret validate_full_system(bool enabled = true) override
+    {
+      if (enabled)
+        return FAILED;
+      return SparseLinearSolver::validate_full_system(false);
+    }
+
     virtual Ret fill_matrix(Context * ctxt,
                             unsigned n_rows, const unsigned rows[],
                             AlgInput xi[], Mod mod,

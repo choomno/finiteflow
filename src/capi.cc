@@ -524,6 +524,31 @@ extern "C" {
     return ffLearn(graph);
   }
 
+  FFStatus ffLSolveValidateFullSystem(FFGraph graph, FFNode node, bool enabled)
+  {
+    Algorithm * alg = session.algorithm(graph,node);
+    Graph * g = session.graph(graph);
+    if (!alg || !g || !g->is_mutable() || !alg->is_mutable())
+      return FF_ERROR;
+    Ret ret = FAILED;
+    auto * dense = dynamic_cast<DenseLinearSolver *>(alg);
+    auto * sparse = dynamic_cast<SparseLinearSolver *>(alg);
+    const bool previous = dense ? dense->full_system_validation() :
+      (sparse ? sparse->full_system_validation() : false);
+    if (dense)
+      ret = dense->validate_full_system(enabled);
+    else if (sparse)
+      ret = sparse->validate_full_system(enabled);
+    if (ret != SUCCESS)
+      return FF_ERROR;
+    if (session.refresh_algorithm_data(graph,node) != SUCCESS) {
+      if (dense) dense->validate_full_system(previous);
+      else if (sparse) sparse->validate_full_system(previous);
+      return FF_ERROR;
+    }
+    return FF_SUCCESS;
+  }
+
   FFStatus ffEvaluateGraphInto(FFGraph graph,
                                const FFUInt * input, unsigned prime_no,
                                FFUInt * output)
@@ -1633,7 +1658,8 @@ extern "C" {
 
     if (dynamic_cast<SparseLinearSolver *>(alg)) {
       SparseLinearSolver & ls = *static_cast<SparseLinearSolver *>(alg);
-      ls.sparse_output(sparse);
+      if (ls.sparse_output(sparse) != SUCCESS)
+        return FF_ERROR;
       session.invalidate_subctxt_alg_data(graph, node);
     } else {
       return FF_ERROR;
@@ -1653,8 +1679,9 @@ extern "C" {
 
     if (dynamic_cast<SparseLinearSolver *>(alg)) {
       SparseLinearSolver & ls = *static_cast<SparseLinearSolver *>(alg);
-      ls.sparse_output_with_maxcol(max_col, back_substitution,
-                                   keep_full_output);
+      if (ls.sparse_output_with_maxcol(max_col, back_substitution,
+                                       keep_full_output) != SUCCESS)
+        return FF_ERROR;
       session.invalidate_subctxt_alg_data(graph, node);
     } else {
       return FF_ERROR;
@@ -1765,16 +1792,25 @@ extern "C" {
 
     } else if (dynamic_cast<AnalyticSparseSolver *>(alg)) {
       AnalyticSparseSolver & ls = *static_cast<AnalyticSparseSolver *>(alg);
+      if (ls.full_system_validation())
+        return FF_ERROR;
+      ls.source_was_pruned();
       ls.delete_unneeded_eqs(session.alg_data(graph, node));
       session.invalidate_subctxt_alg_data(graph, node);
 
     } else if (dynamic_cast<NumericSparseSolver *>(alg)) {
       NumericSparseSolver & ls = *static_cast<NumericSparseSolver *>(alg);
+      if (ls.full_system_validation())
+        return FF_ERROR;
+      ls.source_was_pruned();
       ls.delete_unneeded_eqs(session.alg_data(graph, node));
       session.invalidate_subctxt_alg_data(graph, node);
 
     } else if (dynamic_cast<AnalyticSparseSolverEx *>(alg)) {
       AnalyticSparseSolverEx & ls = *static_cast<AnalyticSparseSolverEx *>(alg);
+      if (ls.full_system_validation())
+        return FF_ERROR;
+      ls.source_was_pruned();
       ls.delete_unneeded_eqs(session.alg_data(graph, node));
       session.invalidate_subctxt_alg_data(graph, node);
 
