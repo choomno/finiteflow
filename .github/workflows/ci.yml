@@ -20,16 +20,27 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake libgmp-dev libflint-dev
-      - name: Configure native library
+          python -m pip install cffi==2.1.1 'pytest>=9,<10'
+      - name: Configure native library and Python bindings
         run: >-
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DFFLOW_USE_FLINT=${{ matrix.flint }}
-          -DFFLOW_MATHEMATICA=OFF -DFFLOW_PYTHON=OFF
+          -DFFLOW_MATHEMATICA=OFF -DFFLOW_PYTHON=ON
+          -DPython3_EXECUTABLE="$(command -v python)"
           -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/finiteflow"
+          -DFFLOW_PYTHON_INSTALL="$RUNNER_TEMP/finiteflow/python"
       - name: Build bounded integration tests
-        run: cmake --build build --target reliability-tests --parallel 2
+        run: cmake --build build --target reliability-tests _cffi_fflow --parallel 2
       - name: Check modular arithmetic and reconstruction controls
         run: ctest --test-dir build --output-on-failure --no-tests=error
+      - name: Install and import the Python interface
+        run: |
+          cmake --install build
+          PYTHONPATH="$RUNNER_TEMP/finiteflow/python" python -c 'import fflow; assert hasattr(fflow, "LSolveValidateFullSystem"); print(fflow.__version__)'
+          PYTHONPATH="$RUNNER_TEMP/finiteflow/python" python -m pytest --import-mode=importlib pythonapi/test_reliability.py -q

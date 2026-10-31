@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.wl linguist-language=Mathematica
+*.m linguist-language=Mathematica
+*.cc linguist-language=C++
+*.hh linguist-language=C++

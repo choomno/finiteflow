@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.18)
 
 project(finiteflow CXX C)
 
@@ -326,7 +326,7 @@ set(FFLOW_PYTHON OFF CACHE BOOL "Build Python interface")
 set(FFLOW_PYTHON_INSTALL "" CACHE PATH
     "Installation path for Python interface")
 if (FFLOW_PYTHON)
-    find_package (Python3 COMPONENTS Interpreter Development)
+    find_package (Python3 REQUIRED COMPONENTS Interpreter Development.Module)
     if (Python3_FOUND)
         file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/_python_gen)
         add_custom_command(
@@ -346,7 +346,7 @@ if (FFLOW_PYTHON)
             "${PROJECT_BINARY_DIR}/_python_gen/_cffi_fflow.c"
         )
         Python3_add_library(_cffi_fflow
-            MODULE
+            MODULE WITH_SOABI
             "${PROJECT_BINARY_DIR}/_python_gen/_cffi_fflow.c"
         )
         add_dependencies(_cffi_fflow fflow_python_interface_src)
