@@ -374,11 +374,23 @@ def PruneGraph(graph):
     return _StatusCheck(_lib.ffPruneGraph(graph))
 
 def Learn(graph):
+    """Learn at the configured prime using default attempt budgets.
+
+    The prime set by a previous LearnEx is retained; its n_singular and
+    n_learning overrides are discarded.
+    """
     return _StatusCheck(_lib.ffLearn(graph))
 
 def LearnEx(graph,**kwargs):
-    opt = _ffi.new("FFLearnOptions *",kwargs)
-    return _StatusCheck(_lib.ffLearnEx(graph, opt[0]))
+    '''Learn using explicit prime and bounded singular/learning attempts.
+
+    Allowed keys are prime_no, n_singular and n_learning. Zero n_learning
+    uses the algorithm minimum; a positive value must not be below it.
+    ResetLSolveLearning is required to discard a previously learned layout.
+    A later Learn retains this prime and restores default attempt budgets.
+    '''
+    opt = _ffi.new("FFGraphLearnOptions *",kwargs)
+    return _StatusCheck(_lib.ffLearnWithOptions(graph, opt[0]))
 
 def LSolveValidateFullSystem(graph, node, enabled=True):
     '''Check every original equation at each modular evaluation.
@@ -390,6 +402,41 @@ def LSolveValidateFullSystem(graph, node, enabled=True):
     the evaluated point; an exact generic certificate is still needed.
     '''
     return _StatusCheck(_lib.ffLSolveValidateFullSystem(graph,node,enabled))
+
+def ResetLSolveLearning(graph):
+    '''Reset a linear-solver output node, its cloned data and reconstruction.
+
+    Original coefficients must still exist. Call LearnEx again afterwards;
+    rebuild the graph if legacy source deletion makes this call fail.
+    '''
+    return _StatusCheck(_lib.ffResetLSolveLearning(graph))
+
+def ResetReconstruction(graph):
+    '''Clear reconstruction caches on a mutable graph, preserving its shift.'''
+    return _StatusCheck(_lib.ffResetReconstruction(graph))
+
+def SetReconstructionShift(graph, shift):
+    '''Set one nonnegative integer per parameter and clear reconstruction.
+
+    Each value must be below PrimeNo(NAvailablePrimes()-1), so it is reduced
+    for every supported prime. None restores the deterministic default.
+    This does not change linear-solver learning or certify reconstruction.
+    '''
+    if shift is None:
+        return _StatusCheck(_lib.ffSetReconstructionShift(graph,_ffi.NULL,0))
+    if any(type(value) is not int or value < 0 for value in shift):
+        raise ValueError("shift coordinates must be nonnegative integers")
+    return _StatusCheck(_lib.ffSetReconstructionShift(graph,shift,len(shift)))
+
+def GetReconstructionShift(graph):
+    '''Return the configured shift or the current deterministic default.'''
+    size = _ffi.new("unsigned *")
+    pointer = _lib.ffGetReconstructionShift(graph,size)
+    if pointer == _ffi.NULL:
+        raise FFlowError()
+    result = list(_ffi.unpack(pointer,size[0]))
+    _lib.ffFreeMemoryU64(pointer)
+    return result
 
 def EvaluateGraph(graph,z,primeno):
     nparsin = _lib.ffNodeNParsOut(graph,0)

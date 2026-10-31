@@ -99,6 +99,7 @@ namespace fflow {
     }
     bool full_system_validation() const { return full_validation_; }
     Ret validate_full_system(bool enabled = true);
+    Ret restart_learning(AlgorithmData * data);
 
     std::size_t n_needed_depvars() const
     {
@@ -307,6 +308,7 @@ namespace fflow {
     bool source_available() const { return !source_pruned_; }
     void source_was_pruned() { source_pruned_ = true; }
     virtual Ret validate_full_system(bool enabled = true);
+    Ret restart_learning(AlgorithmData * data);
 
     std::size_t n_needed_depvars() const
     {

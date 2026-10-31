@@ -75,6 +75,13 @@ extern "C" {
     unsigned prime_no;
   } FFLearnOptions;
 
+  // Separate extended type preserves the existing ffLearnEx ABI.
+  typedef struct {
+    unsigned prime_no;
+    unsigned n_singular;
+    unsigned n_learning; // zero selects the algorithm minimum
+  } FFGraphLearnOptions;
+
   void ffInit(void);
   void ffDeinit(void);
 
@@ -126,13 +133,30 @@ extern "C" {
 
   FFStatus ffPruneGraph(FFGraph graph);
 
+  // Learn uses the configured prime and the original default attempt budgets.
+  // LearnEx sets that prime (including zero) and restores default budgets.
+  // LearnWithOptions applies its explicit prime and budgets to this call;
+  // subsequent legacy Learn keeps the prime but restores default budgets.
   FFStatus ffLearn(FFGraph graph);
   FFStatus ffLearnEx(FFGraph graph, FFLearnOptions opt);
+  FFStatus ffLearnWithOptions(FFGraph graph, FFGraphLearnOptions opt);
 
-  // Opt-in full original-system validation at each modular evaluation.
-  // Configure before learning; only all-variable homogeneous/affine outputs
-  // with full back substitution are supported. Partial requests, weighted Ex
-  // solvers, pruned sources and loaded legacy layouts are rejected.
+  // Clear degree, evaluation and reconstructed-result caches. An explicitly
+  // configured shift is preserved. No learning state is changed. The graph
+  // must be mutable, as it must for changing its reconstruction shift.
+  FFStatus ffResetReconstruction(FFGraph graph);
+  // Passing NULL,0 restores the default shift. Otherwise size must equal the
+  // graph input arity, and each coordinate must be below the smallest FF prime.
+  // Changing the shift clears all reconstruction caches.
+  FFStatus ffSetReconstructionShift(FFGraph graph, const FFUInt * shift, unsigned size);
+  FFUInt * ffGetReconstructionShift(FFGraph graph, unsigned * size);
+  // Linear-solver output nodes only. Original source coefficients must remain
+  // available. Afterwards call ffLearnEx/ffLearnWithOptions before evaluation.
+  FFStatus ffResetLSolveLearning(FFGraph graph);
+  // Opt-in full original-system validation at every modular evaluation. Only
+  // all-variable, fully back-substituted homogeneous/affine outputs are supported.
+  // Configure before learning; partial/particular-only/pruned sources fail.
+  // Weighted Ex solvers and loaded legacy layouts are unsupported.
   FFStatus ffLSolveValidateFullSystem(FFGraph graph, FFNode node, bool enabled);
 
   // output can be freed with ffFreeMemoryU64

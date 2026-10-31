@@ -77,6 +77,18 @@ namespace fflow {
     return SUCCESS;
   }
 
+  Ret DenseLinearSolver::restart_learning(AlgorithmData * data)
+  {
+    stage_ = FIRST_;
+    impossible_ = false;
+    nparsout = 0;
+    nndeps_ = nnindeps_ = zero_vars_ = 0;
+    needed_dep_.reset();
+    needed_indep_.reset();
+    set_learned(false);
+    reset(data);
+    return SUCCESS;
+  }
 
   Ret DenseLinearSolver::validate_full_solution_(Context * ctxt,
                                                  AlgInput xin[], Mod mod,
@@ -479,6 +491,24 @@ namespace fflow {
     return SUCCESS;
   }
 
+  Ret SparseLinearSolver::restart_learning(AlgorithmData * data)
+  {
+    if (source_pruned_)
+      return FAILED;
+    mat_(data).resize(neqs_, nvars()+1);
+    set_ext_needed_(requested_vars_.data(), requested_vars_.size());
+    flag_ &= ~flag_t(IMPOSSIBLE_ | MARKED_AND_SWEEPED_);
+    stage_ = FIRST_;
+    nparsout = nndeps_ = nnindeps_ = 0;
+    needed_dep_.reset();
+    needed_indep_.reset();
+    outeq_pos_.reset();
+    eqdeps_.clear();
+    if (sparseout_data_)
+      sparseout_data_->clear();
+    set_learned(false);
+    return reset(data);
+  }
 
   Ret SparseLinearSolver::validate_full_solution_(Context * ctxt,
                                                   AlgInput xin[], Mod mod,
