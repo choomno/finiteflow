@@ -125,8 +125,10 @@ namespace fflow {
 
     UInt eval(const UInt x[], Mod mod) const;
 
-    void monomialsMod(Mod mod) const;
+    // Return FAILED when a rational coefficient has no image in this field.
+    Ret monomialsMod(Mod mod) const;
 
+    // Return a null pointer when a coefficient cannot be reduced modulo mod.
     HornerPtr toHornerPtr(Mod mod) const;
 
     // merge results from another polynomial
@@ -265,14 +267,24 @@ namespace fflow {
     UInt eval(const UInt x[], Mod mod) const
     {
       UInt num = num_.eval(x,mod);
+      if (num == FAILED)
+        return FAILED;
       UInt den = den_.eval(x,mod);
+      if (den == FAILED || den == 0)
+        return FAILED;
       return div_mod(num, den, mod);
     }
 
-    void toHornerRatFunPtr(HornerRatFunPtr & hfun, Mod mod) const
+    // On FAILED, leave hfun empty rather than a partially converted function.
+    Ret toHornerRatFunPtr(HornerRatFunPtr & hfun, Mod mod) const
     {
       hfun.num_ptr() = num_.toHornerPtr(mod);
       hfun.den_ptr() = den_.toHornerPtr(mod);
+      if (!hfun.num() || !hfun.den()) {
+        hfun = HornerRatFunPtr();
+        return FAILED;
+      }
+      return SUCCESS;
     }
 
     void merge(const SparseRationalFunction & oth,
@@ -315,8 +327,10 @@ namespace fflow {
 
 
   // Mapping MPRational to UInt in Horner
+  // FAILED means that a coefficient denominator vanishes modulo mod. Callers
+  // must discard a partial mapping and must not cache that modulus as valid.
 
-  void horner_map_mprational(const MPRational * coeff, Mod mod,
+  Ret horner_map_mprational(const MPRational * coeff, Mod mod,
                              std::size_t size, const unsigned * mpos,
                              UInt * dest);
 
@@ -358,18 +372,19 @@ namespace fflow {
     }
   };
 
-  inline void horner_polymap_mprational(const MPHornerMap & map, Mod mod,
+  inline Ret horner_polymap_mprational(const MPHornerMap & map, Mod mod,
                                         UInt * dest)
   {
-    horner_map_mprational(map.coeff.get(), mod, map.size, map.pos.get(), dest);
+    return horner_map_mprational(map.coeff.get(), mod, map.size, map.pos.get(), dest);
   }
 
-  inline void horner_ratfunmap_mprational(const MPHornerRatFunMap & map,
+  inline Ret horner_ratfunmap_mprational(const MPHornerRatFunMap & map,
                                           Mod mod,
                                           HornerRatFunPtr & dest)
   {
-    horner_polymap_mprational(map.num_map, mod, dest.num_ptr().get());
-    horner_polymap_mprational(map.den_map, mod, dest.den_ptr().get());
+    if (horner_polymap_mprational(map.num_map, mod, dest.num_ptr().get()) != SUCCESS)
+      return FAILED;
+    return horner_polymap_mprational(map.den_map, mod, dest.den_ptr().get());
   }
 
   inline void horner_ratfun_clone(const HornerRatFunPtr & fun,
@@ -467,34 +482,39 @@ namespace fflow {
 
 
   // small utility
-  inline void map_mp_data(const std::vector<MPHornerMap> & map, Mod mod,
+  inline Ret map_mp_data(const std::vector<MPHornerMap> & map, Mod mod,
                           HornerPtr dest[])
   {
     for (auto & cmap : map)
-      horner_polymap_mprational(cmap, mod, (dest++)->get());
+      if (horner_polymap_mprational(cmap, mod, (dest++)->get()) != SUCCESS)
+        return FAILED;
+    return SUCCESS;
   }
 
-  inline void map_mp_data(const MPHornerMap * map_begin,
+  inline Ret map_mp_data(const MPHornerMap * map_begin,
                           const MPHornerMap * map_end,
                           Mod mod,
                           HornerPtr dest[])
   {
     for (const MPHornerMap * cmap = map_begin; cmap != map_end; ++cmap)
-      horner_polymap_mprational(*cmap, mod, (dest++)->get());
+      if (horner_polymap_mprational(*cmap, mod, (dest++)->get()) != SUCCESS)
+        return FAILED;
+    return SUCCESS;
   }
 
-  inline void
+  inline Ret
   horner2_polymap_mprational(const std::vector<MPHornerMap> & cmpmap,
                              Mod mod,
                              HornerHornerRatFunMap & cfun)
   {
     const auto & cf = cmpmap;
     unsigned num_size = cfun.num_map.size;
-    map_mp_data(cf.data(), cf.data()+num_size,
-                mod, cfun.num_map.coeff.get());
+    if (map_mp_data(cf.data(), cf.data()+num_size,
+                    mod, cfun.num_map.coeff.get()) != SUCCESS)
+      return FAILED;
     unsigned den_size = cfun.den_map.size;
-    map_mp_data(cf.data()+num_size, cf.data()+num_size+den_size,
-                mod, cfun.den_map.coeff.get());
+    return map_mp_data(cf.data()+num_size, cf.data()+num_size+den_size,
+                       mod, cfun.den_map.coeff.get());
   }
 
 } // namespace fflow

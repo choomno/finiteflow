@@ -14,6 +14,8 @@ namespace fflow {
   // Dense solver
 
   class DenseLinearSolverData : public AlgorithmData {
+  public:
+    virtual void invalidate_modulus() {}
   private:
     friend class DenseLinearSolver;
     std::vector<std::size_t> depv_;
@@ -202,6 +204,8 @@ namespace fflow {
   // Sparse solver
 
   class SparseLinearSolverData : public AlgorithmData {
+  public:
+    virtual void invalidate_modulus() {}
   private:
     friend class SparseLinearSolver;
     SparseMatrix mat_;

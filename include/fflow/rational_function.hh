@@ -99,7 +99,10 @@ namespace fflow {
 
     UInt eval(UInt x, Mod mod) const
     {
-      return div_mod(num_.eval(x,mod), den_.eval(x,mod), mod);
+      UInt den = den_.eval(x,mod);
+      if (den == 0)
+        return FAILED;
+      return div_mod(num_.eval(x,mod), den, mod);
     }
 
     // remove higher degree terms which are zeroes
@@ -375,6 +378,8 @@ namespace fflow {
     {
       UInt num = num_.eval(x,mod);
       UInt den = den_.eval(x,mod);
+      if (den == 0)
+        return FAILED;
       return div_mod(num, den, mod);
     }
 
@@ -450,6 +455,8 @@ namespace fflow {
               const UInt * __restrict xp_shoup,
               Mod mod) const
     {
+      if (!den_)
+        return FAILED;
       return horner_ratfun_eval(num_.get(), den_.get(), nvars,
                                 workspace, x, xp_shoup, mod);
     }
@@ -467,8 +474,8 @@ namespace fflow {
 
     std::size_t required_workspace()
     {
-      return std::max(horner_required_workspace(num()),
-                      horner_required_workspace(den()));
+      return std::max(num() ? horner_required_workspace(num()) : std::size_t(0),
+                      den() ? horner_required_workspace(den()) : std::size_t(0));
     }
 
   private:

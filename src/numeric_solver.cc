@@ -23,7 +23,8 @@ namespace fflow {
 
       for (; f<fend; ++f, ++r, ++info)
         if ((*info) & LSVar::IS_NON_ZERO) {
-          rat_mod((*f), mpmod, mpres);
+          if (!rat_mod((*f), mpmod, mpres))
+            return FAILED;
           *r = mpres.to_uint();
         }
     }
@@ -109,7 +110,8 @@ namespace fflow {
       for (; cols<cols_end; ++cols, ++idx) {
         unsigned col = *cols;
         if (info[col] & LSVar::IS_NON_ZERO) {
-          rat_mod(c[*idx], mpmod, mpres);
+          if (!rat_mod(c[*idx], mpmod, mpres))
+            return FAILED;
           UInt res = mpres.to_uint();
           if (FF_ERRCOND(res == 0))
             return zero_sparse_ccs_();

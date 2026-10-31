@@ -13,9 +13,11 @@ namespace fflow {
   struct AnalyticDenseSolverData : public DenseLinearSolverData {
   public:
     DynamicMatrixT<HornerRatFunPtr> c;
+    void invalidate_modulus() override { this_mod_ = 0; }
+
   private:
     friend class AnalyticDenseSolver;
-    void reset_mod_(const AnalyticDenseSolver & ls, Mod mod);
+    Ret reset_mod_(const AnalyticDenseSolver & ls, Mod mod);
   private:
     std::unique_ptr<UInt[]> xp_ = nullptr;
     UInt this_mod_ = 0;
@@ -41,9 +43,11 @@ namespace fflow {
   public:
     std::vector<HornerRatFunPtr> c;
 
+    void invalidate_modulus() override { this_mod_ = 0; }
+
   private:
     friend class AnalyticSparseSolver;
-    void reset_mod_(const AnalyticSparseSolver & ls, Mod mod);
+    Ret reset_mod_(const AnalyticSparseSolver & ls, Mod mod);
     void reset_evals_(const AnalyticSparseSolver & ls);
 
   private:
@@ -92,9 +96,11 @@ namespace fflow {
   public:
     std::vector<HornerRatFunPtr> c;
 
+    void invalidate_modulus() override { this_mod_ = 0; }
+
   private:
     friend class AnalyticSparseSolverEx;
-    void reset_mod_(const AnalyticSparseSolverEx & ls, Mod mod);
+    Ret reset_mod_(const AnalyticSparseSolverEx & ls, Mod mod);
     void reset_evals_(const AnalyticSparseSolverEx & ls);
 
   private:

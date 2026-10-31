@@ -13,7 +13,7 @@ namespace fflow {
 
   private:
     friend class AnalyticFunction;
-    void reset_mod_(Mod mod, const AnalyticFunction & alg);
+    Ret reset_mod_(Mod mod, const AnalyticFunction & alg);
 
   private:
     std::unique_ptr<UInt[]> xp_ = nullptr;
@@ -67,7 +67,7 @@ namespace fflow {
 
   private:
 
-    void init_mod_(EvalRationalNumbersData & data, Mod mod) const;
+    Ret init_mod_(EvalRationalNumbersData & data, Mod mod) const;
 
   private:
     std::vector<MPRational> val_;
@@ -207,7 +207,7 @@ namespace fflow {
 
   private:
 
-    void reset_mod_(Mod mod, AnalyticExpressionData & data) const;
+    Ret reset_mod_(Mod mod, AnalyticExpressionData & data) const;
     unsigned compute_max_stack_size_() const;
 
   private:

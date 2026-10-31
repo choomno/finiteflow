@@ -235,12 +235,16 @@ extern "C" {
 namespace {
 
   template <typename FunMap>
-  void get_horner_ratfun(const FFRatFunList * rf,
+  Ret get_horner_ratfun(const FFRatFunList * rf,
                          unsigned idx,
                          HornerRatFunPtr & f,
                          FunMap & map,
                          HornerWorkspacePtr & workspace)
   {
+    // Horner graphs require at least one parameter. Constant matrices use
+    // the numeric solver, and direct rational-function evaluation supports Q.
+    if (!rf || !rf->n_vars)
+      return FAILED;
     const MPReconstructedRatFun & rfun = rf->rf[idx];
     const MPReconstructedPoly & num = rfun.numerator();
     const MPReconstructedPoly & den = rfun.denominator();
@@ -270,6 +274,7 @@ namespace {
     max_workspace = std::max(horner_required_workspace(f.den()),
                              max_workspace);
     workspace.ensure_size(max_workspace);
+    return SUCCESS;
   }
 
   Ret get_horner_ratfun_coeffs(const FFRatFunList * rf,
@@ -279,6 +284,10 @@ namespace {
                                CoeffHornerRatFunMap & map,
                                HornerWorkspacePtr & workspace)
   {
+    // Horner graphs require at least one parameter. Constant matrices use
+    // the numeric solver, and direct rational-function evaluation supports Q.
+    if (!rf || !rf->n_vars)
+      return FAILED;
     const MPReconstructedRatFun & rfun = rf->rf[idx];
     const MPReconstructedPoly & num = rfun.numerator();
     const MPReconstructedPoly & den = rfun.denominator();
@@ -857,8 +866,9 @@ extern "C" {
     sys.cmap.resize(max_functions);
 
     for (int j=0; j<max_functions; ++j)
-      get_horner_ratfun(rat_functions, j, data.c[j], sys.cmap[j],
-                        session.main_context()->ww);
+      if (get_horner_ratfun(rat_functions, j, data.c[j], sys.cmap[j],
+                            session.main_context()->ww) != SUCCESS)
+        return FF_ERROR;
 
     for (int i=0; i<n_rows; ++i) {
       const unsigned csize = n_non_zero[i];
@@ -1050,8 +1060,9 @@ extern "C" {
     sys.cmap.resize(max_functions);
 
     for (int j=0; j<max_functions; ++j)
-      get_horner_ratfun(rat_functions, j, data.c[j], sys.cmap[j],
-                        session.main_context()->ww);
+      if (get_horner_ratfun(rat_functions, j, data.c[j], sys.cmap[j],
+                            session.main_context()->ww) != SUCCESS)
+        return FF_ERROR;
 
     if (n_in_nodes < 1) {
       logerr("At least one input node is required");
@@ -2290,8 +2301,9 @@ extern "C" {
     data->f.reset(new HornerRatFunPtr[nfunctions]);
     alg.fmap.reset(new MPHornerRatFunMap[nfunctions]);
     for (int i=0; i<nfunctions; ++i)
-      get_horner_ratfun(rf, i, data->f[i], alg.fmap[i],
-                        session.main_context()->ww);
+      if (get_horner_ratfun(rf, i, data->f[i], alg.fmap[i],
+                            session.main_context()->ww) != SUCCESS)
+        return FF_ERROR;
 
     if (!session.graph_exists(graph))
       return FF_ERROR;
@@ -3293,9 +3305,10 @@ extern "C" {
 
     for (unsigned i=0; i<n_rows; ++i)
       for (unsigned j=0; j<n_vars+1; ++j) {
-        get_horner_ratfun(rat_functions, i*(n_vars+1)+j,
-                          data.c(i,j), sys.cmap(i,j),
-                          session.main_context()->ww);
+        if (get_horner_ratfun(rat_functions, i*(n_vars+1)+j,
+                              data.c(i,j), sys.cmap(i,j),
+                              session.main_context()->ww) != SUCCESS)
+          return FF_ERROR;
       }
 
     sys.nparsin.resize(1);
